@@ -11,8 +11,14 @@ import "golang.org/x/net/html/atom"
 /*
 Components
 
+- URL Frontier (data structure)
+	- 1. Extract URLs.
+	- 2. Assign URL to queues using mapping table.
+		- Mapping table self init.
+	- 3. A process dequeues from a URL queue to download.
+		- This process should spawn a worker thread.
+
 - HTML Downloader
-- URL Frontier
 */
 
 // https://datatracker.ietf.org/doc/html/rfc3986#section-3
@@ -20,6 +26,14 @@ const scheme string = "http"
 const host string = "localhost:8003"
 const path string = "en/Main_page.html"
 var seed string = fmt.Sprintf("%s://%s/%s", scheme, host, path)
+
+type tQueue[T any] struct {
+	elements []T
+}
+
+type UrlFront struct {
+	urlQueues tQueue[string]
+}
 
 func main() {
 	re := regexp.MustCompile(`^(https?://)?([a-zA-Z0-9.-]+){1}/([a-zA-Z0-9_./:-]+)?(\?.+)?(#.+)?`)
