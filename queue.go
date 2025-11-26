@@ -1,51 +1,44 @@
 package main
 
+import "errors"
 import "slices"
 
-type Queue[T any] struct {
-	Elements []T
-	CurIndex int
+type Queue[T comparable] struct {
+	elements []T
 }
 
-func NewQueue[T any]() Queue[T] {
-	return Queue[T]{make([]T, 0, 1), 0}
+/* Initialize slice with capacity of 1. */
+func NewQueue[T comparable]() Queue[T] {
+	return Queue[T]{make([]T, 0, 1)}
 }
 
-func (q *Queue[T]) Enqueue(d T) {
-	if q.CurIndex >= len(q.Elements) {
-		q.Elements = slices.Grow(q.Elements, 1)
+func (q *Queue[T]) Enqueue(element T) {
+	if len(q.elements) == cap(q.elements) {
+		q.elements = slices.Grow(q.elements, 1)
 	}
-	q.Elements = slices.Insert(q.Elements, len(q.Elements), d)
-	q.CurIndex += 1
+	q.elements = append(q.elements, element)
 }
 
-func (q *Queue[T]) Dequeue() T {
-	dequeued := q.Elements[0]
-	t := make([]T, 0, len(q.Elements)-1)
-	t = q.Elements[1:]
-	q.Elements = t
-	q.CurIndex -= 1
-	return dequeued
+func (q *Queue[T]) Dequeue() (deq T, err error) {
+	if len(q.elements) == 0 {
+		return deq, errors.New("Cannot dequeue from empty queue.")
+	}
+
+	deq = q.elements[0]
+	copy(q.elements, q.elements[1:])
+	q.elements = q.elements[:len(q.elements)-1]
+	return deq, nil
 }
 
-func (q *Queue[T]) GetElements() (r []T) {
-	return q.Elements
+/* Return queue as array. */
+func (q *Queue[T]) GetElements() []T {
+	return q.elements
 }
 
-// Generic type comparison too complicated rn.
-// func (q *Queue[string]) Find(e string) int {
-// 	var lower int = 0
-// 	var upper int = len(q.Elements) - 1
-// 	var mid int = lower + ((upper - lower) / 2)
-// 	for lower <= upper {
-// 		var val string = q.Elements[mid]
-// 		if val == e {
-// 			return mid
-// 		} else if val < e {
-// 			lower = upper
-// 		} else if val > e {
-// 		}
-// 		mid = lower + ((upper - lower) / 2)
-// 	}
-// 	return -1
-// }
+func (q *Queue[T]) GetLength() int {
+	return len(q.elements)
+}
+
+func (q *Queue[T]) Exists(e T) bool {
+	return slices.Contains(q.elements, e)
+}

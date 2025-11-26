@@ -1,12 +1,11 @@
-package test
+package main
 
 import "testing"
-import "github.com/Aohk22/web-1-go-crawler"
 
 func TestEnqueue(t *testing.T) {
 	q := NewQueue[uint8]()
 	q.Enqueue(128)
-	if len(q.Elements) != 1 {
+	if len(q.elements) != 1 {
 		t.Errorf("len(NewQueue) != %d", 2)
 	}
 }
@@ -14,10 +13,18 @@ func TestEnqueue(t *testing.T) {
 func TestDequeue(t *testing.T) {
 	q := NewQueue[uint8]()
 	q.Enqueue(128)
-	deq := q.Dequeue()
-	if q.CurIndex != 0 {
-		t.Errorf("len(Elements) = %d but CurIndex = %d", len(q.Elements), q.CurIndex)
+	deq, _ := q.Dequeue()
+	if q.GetLength() != 0 {
 	} else if deq != 128 {
 		t.Errorf("Dequeue returned wrong value, expected %d got %d", 128, deq)
+	}
+}
+
+func TestFind(t *testing.T) {
+	q := NewQueue[string]()
+	q.Enqueue("hellow")
+	got := q.Exists("hellow")
+	if got != true {
+		t.Errorf("Expected true, got %t", got)
 	}
 }

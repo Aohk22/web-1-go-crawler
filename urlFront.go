@@ -1,10 +1,9 @@
 package main
 
 import (
-	"errors"
-	"fmt"
 	"log"
 	"regexp"
+	"errors"
 	"strings"
 )
 
@@ -13,9 +12,7 @@ const (
 	UrlTypeRel
 )
 
-var regexUri *regexp.Regexp = regexp.MustCompile(`^(https?://)?([a-zA-Z0-9.\-:]+)/([a-zA-Z0-9_./:-]+)?(\?.+)?(#.+)?`)
-
-type Url struct {
+type Uri struct {
 	Full     string
 	Schema   string
 	Host     string
@@ -25,75 +22,103 @@ type Url struct {
 	PathType int
 }
 
-func (u *Url) Parse(s string) error {
-	fields := regexUri.FindStringSubmatch(s)
-	if len(fields) != 6 {
-		return errors.New("No matches.")
-	}
-
-	u.Full = fields[0]
-	u.Schema = fields[1]
-	u.Host = fields[2]
-	u.Path = fields[3]
-	u.Query = fields[4]
-	u.Frag = fields[5]
-
-	if u.Host == ".." {
-		u.PathType = UrlTypeRel
-	} else {
-		u.PathType = UrlTypeAbs
-	}
-
-	return nil
-}
-
 type UrlFrontier struct {
-	UrlQueues  []Queue[string]
-	UrlMap     map[string]uint8
-	MapRrIndex uint8 // Round robin.
+	Urls []string
+	HostMap map[string]uint8
+	queueIdx uint8
 }
 
 func NewUrlFrontier() UrlFrontier {
-	// queue list pre init.
-	return UrlFrontier{make([]Queue[string], 3, MAX_QUEUES), make(map[string]uint8, 1), 0}
+	return UrlFrontier{make([]string, 0, 1), make(map[string]uint8, 1), 0}
 }
 
-func (uf *UrlFrontier) GetQueueMap(hostname string) uint8 {
-	_, ok := uf.UrlMap[hostname]
+func (uf *UrlFrontier) CreateMapping(hostname string) (uint8) {
+	log.Printf("Creating mapping for %s - %d", hostname, uf.queueIdx)
+	uf.HostMap[hostname] = uf.queueIdx
+	uf.queueIdx = (uf.queueIdx + 1) % uint8(MAX_QUEUES)
+	return uf.HostMap[hostname]
+}
+
+func (uf *UrlFrontier) ProcessUrl(parentUrl string, url string, pQueues *([]Queue[string])) error {
+	uri := Uri{}
+
+	url = strings.ReplaceAll(url, "\\", "/")
+	uri, err := parseUrl(parentUrl, url)
+	if err != nil {
+		log.Printf("Skipping URL: %s", url)
+		return err
+	}
+
+	queueIdx, ok := uf.HostMap[uri.Host]
+
 	if !ok {
-		uf.UrlMap[hostname] = uf.MapRrIndex
-		uf.MapRrIndex = (uf.MapRrIndex + 1) % uint8(MAX_QUEUES)
-	}
-	return uf.UrlMap[hostname]
-}
+		queueIdx = uf.CreateMapping(uri.Host)
+	} 
 
-func (uf *UrlFrontier) ProcessUrl(uri string) error {
-	url := Url{}
-
-	uri = strings.ReplaceAll(uri, "\\", "/")
-	err := url.Parse(uri)
-
-	if err == nil {
-		switch url.PathType {
-		case UrlTypeRel:
-			queueIndex := uf.GetQueueMap(url.Host)
-			if int(queueIndex) >= len(uf.UrlQueues) {
-				return errors.New("Index out of range.")
-			}
-			uf.UrlQueues[queueIndex].Enqueue(url.Full)
-		case UrlTypeAbs:
-		default:
-			return errors.New("Undefined URL type.")
+	switch uri.PathType {
+	case UrlTypeRel:
+		queues := *pQueues
+		queue := &(queues[queueIdx])
+		if queue.Exists(uri.Full) == false {
+			log.Printf("Enqueueing: %s", uri.Full)
+			(*queue).Enqueue(uri.Full)
 		}
-	} else {
-		log.Printf("Skipping string %s", uri)
+	case UrlTypeAbs:
+		// queues := *pQueues
+		// queue := &(queues[queueIdx])
+		// if queue.Exists(uri.Full) == false {
+		// 	log.Printf("Enqueueing: %s", uri.Full)
+		// 	(*queue).Enqueue(uri.Full)
+		// }
+	default:
+		return errors.New("Undefined URL type.")
 	}
+
 	return nil
 }
 
-func printFields(list []string) {
-	for i, m := range list {
-		fmt.Printf("Element %d", i)
-		fmt.Println(m)
+/*
+Parsing is heavily dependent on regular expression. 
+[0] = full path
+[1] = schema
+[2] = host
+[3] = path
+[4] = query
+[5] = fragment
+*/
+func parseUrl(parentUrl string, url string) (uri Uri, err error) {
+	regexUri := regexp.MustCompile(`^(https?://)?((?:[a-zA-Z0-9\-:]\.?)+)?(\.{0,2}[a-zA-Z0-9_./:\-]+)?(\?.*)?(#.*)?`)
+	fields := regexUri.FindStringSubmatch(url)
+	parentFields := regexUri.FindStringSubmatch(parentUrl)
+	// for i, a := range fields {
+	// 	log.Printf("[%d] %s", i, a)
+	// }
+	if len(fields) != 6 {
+		return uri, errors.New("No matches.")
 	}
+
+	uri.Full = fields[0]
+	uri.Schema = fields[1]
+	uri.Host = fields[2]
+	uri.Path = fields[3]
+	uri.Query = fields[4]
+	uri.Frag = fields[5]
+
+	if uri.Host == "" && uri.Path == "" && uri.Schema == "" {
+		return uri, errors.New("Parse error: no host nor path nor schema.")
+	} else if uri.Host == "" {
+		uri.PathType = UrlTypeRel
+		uri.Schema = parentFields[1]
+		uri.Host = parentFields[2]
+		uri.Full = uri.Schema + uri.Host + "/" + uri.Path
+		// log.Printf("Reconstructed path %s", uri.Full)
+	} else {
+		if uri.Schema == "" {
+			uri.Schema = "http://"
+			uri.Full = uri.Schema + uri.Full
+		}
+		uri.PathType = UrlTypeAbs
+	}
+
+	return uri, nil
 }
