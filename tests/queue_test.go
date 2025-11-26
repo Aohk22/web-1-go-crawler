@@ -1,6 +1,7 @@
-package main
+package test
 
 import "testing"
+import "github.com/Aohk22/web-1-go-crawler"
 
 func TestEnqueue(t *testing.T) {
 	q := NewQueue[uint8]()

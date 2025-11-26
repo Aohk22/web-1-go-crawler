@@ -33,19 +33,19 @@ func (q *Queue[T]) GetElements() (r []T) {
 }
 
 // Generic type comparison too complicated rn.
-func (q *Queue[string]) Find(e string) int {
-	var lower int = 0
-	var upper int = len(q.Elements) - 1
-	var mid int = lower + ((upper - lower) / 2)
-	for lower <= upper {
-		var val string = q.Elements[mid]
-		if val == e {
-			return mid
-		} else if val < e {
-			lower = upper
-		} else if val > e {
-		}
-		mid = lower + ((upper - lower) / 2)
-	}
-	return -1
-}
+// func (q *Queue[string]) Find(e string) int {
+// 	var lower int = 0
+// 	var upper int = len(q.Elements) - 1
+// 	var mid int = lower + ((upper - lower) / 2)
+// 	for lower <= upper {
+// 		var val string = q.Elements[mid]
+// 		if val == e {
+// 			return mid
+// 		} else if val < e {
+// 			lower = upper
+// 		} else if val > e {
+// 		}
+// 		mid = lower + ((upper - lower) / 2)
+// 	}
+// 	return -1
+// }
